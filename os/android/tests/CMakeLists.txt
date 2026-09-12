@@ -31,3 +31,8 @@ add_test(NAME android_raster_contract COMMAND android_raster_test)
 add_executable(android_display_metrics_test display_metrics_test.cpp)
 target_include_directories(android_display_metrics_test PRIVATE ../../.. "${CMAKE_CURRENT_BINARY_DIR}")
 add_test(NAME android_display_metrics_contract COMMAND android_display_metrics_test)
+
+add_executable(android_pressure_test pressure_test.cpp ../event_queue.cpp)
+target_include_directories(android_pressure_test PRIVATE ../../.. "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(android_pressure_test PRIVATE Threads::Threads)
+add_test(NAME android_pressure_contract COMMAND android_pressure_test)

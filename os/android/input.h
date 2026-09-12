@@ -34,9 +34,13 @@ private:
                gfx::Point physical,
                PointerType pointerType,
                Event::MouseButton button = Event::NoneButton,
-               gfx::Point wheel = {});
+               gfx::Point wheel = {},
+               float pressure = 0.0f);
   void cancelPointer();
 
+#ifndef NDEBUG
+  unsigned m_pressureTraceMask = 0;
+#endif
   MotionDiagnostics m_diagnostics;
   JNIEnv* m_env;
   AInputQueue* m_queue = nullptr;

@@ -5,6 +5,7 @@
 #endif
 #include "os/android/input.h"
 #include "os/android/system.h"
+#include "os/android/pressure.h"
 #include "os/event_queue.h"
 
 #include <android/keycodes.h>
@@ -152,13 +153,15 @@ void InputAndroid::pointer(Event::Type type,
                            gfx::Point physical,
                            PointerType pointerType,
                            Event::MouseButton button,
-                           gfx::Point wheel)
+                           gfx::Point wheel,
+                           float pressure)
 {
   const int scale = SystemAndroid::inputScale();
   Event event;
   event.setType(type);
   event.setPointerType(pointerType);
   event.setButton(button);
+  event.setPressure(android_pointer_pressure(pointerType, pressure));
   const auto display = SystemAndroid::toDisplayPosition(physical);
   event.setPosition(gfx::Point(int(std::floor(double(display.x) / scale)),
                                int(std::floor(double(display.y) / scale))));
@@ -171,6 +174,17 @@ void InputAndroid::pointer(Event::Type type,
   // Null WindowRef selects the one default display in ui::Manager. Avoid
   // retaining a GUI-owned reference on Android's callback thread.
   queue_event(event);
+#ifndef NDEBUG
+  const unsigned bucket = 1u << int(event.pressure() * 4);
+  if (type == Event::MouseDown || type == Event::MouseUp ||
+      (type == Event::MouseMove && !(m_pressureTraceMask & bucket))) {
+    m_pressureTraceMask |= bucket;
+    __android_log_print(ANDROID_LOG_INFO, "Aseprite",
+                        "PressureEvent type=%d pointer=%s ui=%d,%d raw=%.6f event=%.6f",
+                        int(type), pointerName(pointerType), event.position().x, event.position().y,
+                        pressure, event.pressure());
+  }
+#endif
   if (type == Event::MouseWheel)
     __android_log_print(ANDROID_LOG_INFO,
                         "Aseprite",
@@ -304,6 +318,9 @@ bool InputAndroid::motion(AInputEvent* event)
 
   if (action == AMOTION_EVENT_ACTION_DOWN) {
     cancelPointer();
+#ifndef NDEBUG
+    m_pressureTraceMask = 0;
+#endif
     m_pointerId = AMotionEvent_getPointerId(event, 0);
     m_pointerType = toolType(AMotionEvent_getToolType(event, 0));
     m_inside = true;
@@ -328,13 +345,14 @@ bool InputAndroid::motion(AInputEvent* event)
     if (lifted != index)
       return true;
   }
+  const float pressure = AMotionEvent_getPressure(event, index);
   if (action == AMOTION_EVENT_ACTION_DOWN)
-    pointer(Event::MouseEnter, m_position, m_pointerType);
-  pointer(Event::MouseMove, m_position, m_pointerType);
+    pointer(Event::MouseEnter, m_position, m_pointerType, Event::NoneButton, {}, pressure);
+  pointer(Event::MouseMove, m_position, m_pointerType, Event::NoneButton, {}, pressure);
   if (action == AMOTION_EVENT_ACTION_DOWN)
-    pointer(Event::MouseDown, m_position, m_pointerType, Event::LeftButton);
+    pointer(Event::MouseDown, m_position, m_pointerType, Event::LeftButton, {}, pressure);
   else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_POINTER_UP) {
-    pointer(Event::MouseUp, m_position, m_pointerType, Event::LeftButton);
+    pointer(Event::MouseUp, m_position, m_pointerType, Event::LeftButton, {}, pressure);
     m_pointerId = -1;
     // Keep the last target through up dispatch; the next down supplies enter/move.
   }
