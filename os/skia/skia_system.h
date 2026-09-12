@@ -29,6 +29,9 @@
 #elif LAF_LINUX
   #include "os/x11/system.h"
   #define SkiaSystemBase SystemX11
+#elif LAF_ANDROID
+  #include "os/android/system.h"
+  #define SkiaSystemBase SystemAndroid
 #endif
 
 #include "include/core/SkGraphics.h"
@@ -46,6 +49,10 @@ public:
 
   Capabilities capabilities() const override
   {
+#if LAF_ANDROID
+    // Only capabilities supplied by the common raster implementation.
+    return Capabilities(int(Capabilities::WindowScale) | int(Capabilities::ColorSpaces));
+#else
     return Capabilities(int(Capabilities::MultipleWindows) | int(Capabilities::CanResizeWindow) |
                         int(Capabilities::WindowScale) | int(Capabilities::CustomMouseCursor) |
                         int(Capabilities::ColorSpaces)
@@ -56,6 +63,7 @@ public:
                         | int(Capabilities::GpuAccelerationSwitch)
 #endif
     );
+#endif
   }
 
   void setTabletOptions(const TabletOptions& options) override
@@ -69,13 +77,23 @@ public:
 #endif
   }
 
-  Window* defaultWindow() override { return m_defaultWindow; }
+  Window* defaultWindow() override
+  {
+#if LAF_ANDROID
+    // Android tracks the live logical window, including its destruction.
+    return SkiaSystemBase::defaultWindow();
+#else
+    return m_defaultWindow;
+#endif
+  }
 
   WindowRef makeWindow(const WindowSpec& spec) override
   {
     auto window = make_ref<SkiaWindow>(spec);
+#if !LAF_ANDROID
     if (!m_defaultWindow)
       m_defaultWindow = window.get();
+#endif
     if (window && m_windowCS)
       window->setColorSpace(m_windowCS);
     return window;
@@ -104,8 +122,8 @@ public:
 
   void setTextInput(bool state, const gfx::Point& screenCaretPos = {}) override
   {
-    if (m_defaultWindow)
-      m_defaultWindow->setTextInput(state, screenCaretPos);
+    if (auto* window = static_cast<SkiaWindow*>(defaultWindow()))
+      window->setTextInput(state, screenCaretPos);
   }
 
   void listColorSpaces(std::vector<os::ColorSpaceRef>& list) override
@@ -133,8 +151,8 @@ public:
   {
     m_windowCS = cs;
 
-    if (m_defaultWindow)
-      m_defaultWindow->setColorSpace(m_windowCS);
+    if (auto* window = defaultWindow())
+      window->setColorSpace(m_windowCS);
 
     // TODO change the color space of all windows
   }

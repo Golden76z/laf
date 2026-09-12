@@ -51,7 +51,12 @@ elseif(APPLE)
       osx/window.mm
       gl/gl_context_nsgl.mm)
   endif()
-elseif(NOT ANDROID)
+elseif(ANDROID)
+  list(APPEND LAF_OS_SOURCES
+    android/event_queue.cpp
+    android/system.cpp
+    android/window.cpp)
+else()
   list(APPEND LAF_OS_SOURCES
     x11/dnd.cpp
     x11/event_queue.cpp
@@ -83,7 +88,10 @@ if(LAF_BACKEND STREQUAL "skia")
   elseif(APPLE)
     list(APPEND LAF_OS_SOURCES
       skia/skia_window_osx.mm)
-  elseif(NOT ANDROID)
+  elseif(ANDROID)
+    list(APPEND LAF_OS_SOURCES
+      skia/skia_window_android.cpp)
+  else()
     list(APPEND LAF_OS_SOURCES
       skia/skia_window_x11.cpp)
   endif()
