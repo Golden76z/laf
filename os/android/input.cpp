@@ -52,6 +52,9 @@ KeyScancode scancode(int code)
     case AKEYCODE_DPAD_UP:     return kKeyUp;
     case AKEYCODE_DPAD_DOWN:   return kKeyDown;
     case AKEYCODE_SPACE:       return kKeySpace;
+    // Filename punctuation; characters still come from KeyCharacterMap.
+    case AKEYCODE_MINUS:       return kKeyMinus;
+    case AKEYCODE_PERIOD:      return kKeyStop;
     case AKEYCODE_TAB:         return kKeyTab;
     case AKEYCODE_SHIFT_LEFT:  return kKeyLShift;
     case AKEYCODE_SHIFT_RIGHT: return kKeyRShift;
