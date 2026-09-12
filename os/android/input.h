@@ -5,6 +5,7 @@
 #pragma once
 
 #include "os/event.h"
+#include "os/android/motion_diagnostics.h"
 #include <android/input.h>
 #include <jni.h>
 
@@ -36,6 +37,7 @@ private:
                gfx::Point wheel = {});
   void cancelPointer();
 
+  MotionDiagnostics m_diagnostics;
   JNIEnv* m_env;
   AInputQueue* m_queue = nullptr;
   int m_pointerId = -1;

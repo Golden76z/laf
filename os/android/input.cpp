@@ -213,6 +213,7 @@ void InputAndroid::cancelPointer()
 
 void InputAndroid::cancel()
 {
+  m_diagnostics.finish("focus-or-lifecycle");
   cancelPointer();
   std::array<bool, kKeyScancodes> old;
   {
@@ -237,6 +238,7 @@ bool InputAndroid::motion(AInputEvent* event)
   const int source = AInputEvent_getSource(event);
   if (!(source & AINPUT_SOURCE_CLASS_POINTER))
     return false;
+  m_diagnostics.observe(event);
   const int rawAction = AMotionEvent_getAction(event);
   const int action = rawAction & AMOTION_EVENT_ACTION_MASK;
   const size_t count = AMotionEvent_getPointerCount(event);
