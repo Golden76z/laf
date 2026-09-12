@@ -6,6 +6,7 @@
   #include "config.h"
 #endif
 
+#include "os/android/system.h"
 #include "os/skia/skia_window_android.h"
 
 #include <android/log.h>
@@ -23,9 +24,8 @@ SkiaWindowAndroid::SkiaWindowAndroid(const WindowSpec& spec) : Base(spec)
 
 void SkiaWindowAndroid::swapBuffers()
 {
-  // All presentation is synchronous on the NativeActivity/main thread, so the
-  // destruction callback cannot release this handle while it is locked.
-  auto* native = static_cast<ANativeWindow*>(nativeHandle());
+  auto nativeLock = SystemAndroid::lockNativeWindow();
+  auto* native = nativeLock.window;
   auto* raster = static_cast<SkiaSurface*>(surface());
   if (!native || !raster || !raster->isValid())
     return;

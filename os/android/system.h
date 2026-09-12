@@ -7,6 +7,7 @@
 #pragma once
 
 #include "os/common/system.h"
+#include <mutex>
 
 struct ANativeWindow;
 
@@ -16,17 +17,18 @@ namespace os {
 // input, menus and cursors. Skia supplies the raster surfaces and factory.
 class SystemAndroid : public CommonSystem {
 public:
-  ~SystemAndroid() override;
   Window* defaultWindow() override;
+  ScreenRef primaryScreen() override;
+  void listScreens(ScreenList& screens) override;
 
-  // NativeActivity callbacks and presentation run on Android's main thread.
-  // Own one reference; the returned pointer is borrowed for immediate use on
-  // that thread, never for retention by a renderer/worker across callbacks.
-  bool setNativeWindow(ANativeWindow* window);
-  ANativeWindow* nativeWindow() const { return m_nativeWindow; }
-
-private:
-  ANativeWindow* m_nativeWindow = nullptr;
+  // Independent of System::make(): Android owns this reference before app_main.
+  // Hold the lock through lock/copy/post, so destruction waits for presentation.
+  struct NativeWindowLock {
+    std::unique_lock<std::mutex> lock;
+    ANativeWindow* window;
+  };
+  static NativeWindowLock lockNativeWindow();
+  static bool setNativeWindow(ANativeWindow* window);
 };
 
 } // namespace os

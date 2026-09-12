@@ -11,6 +11,7 @@
 #include "os/window_spec.h"
 
 #include <algorithm>
+#include <android/native_window.h>
 #include <stdexcept>
 
 namespace os {
@@ -19,14 +20,18 @@ namespace {
 WindowAndroid* g_window = nullptr;
 } // namespace
 
-WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(std::max(1, spec.scale()))
+WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(1)
 {
   if (g_window)
     throw std::runtime_error("Android supports only one logical window");
 
-  // There are no native decorations or screen metrics for centering yet.
-  m_frame = scaledFrame(spec.position() == WindowSpec::Position::Frame ? spec.frame() :
-                                                                         spec.contentRect());
+  // One activity fills its native surface. Desktop saved/centered rectangles
+  // and the default desktop scale cannot size Android's presentation buffer.
+  auto native = SystemAndroid::lockNativeWindow();
+  if (!native.window)
+    throw std::runtime_error("Android window creation requires ANativeWindow");
+  m_frame =
+    gfx::Rect(0, 0, ANativeWindow_getWidth(native.window), ANativeWindow_getHeight(native.window));
   m_restoredFrame = m_frame;
   setUserData<void>(nullptr);
   g_window = this;
@@ -44,8 +49,9 @@ WindowAndroid* WindowAndroid::instance()
 
 Window::NativeHandle WindowAndroid::nativeHandle() const
 {
-  auto* system = dynamic_cast<SystemAndroid*>(System::rawInstance());
-  return system ? system->nativeWindow() : nullptr;
+  // A raw handle cannot express the cross-thread lifetime guard. Presentation
+  // uses SystemAndroid::lockNativeWindow() instead.
+  return nullptr;
 }
 
 gfx::Rect WindowAndroid::scaledFrame(const gfx::Rect& frame) const
@@ -66,16 +72,10 @@ void WindowAndroid::setFrame(const gfx::Rect& bounds)
     onResize(clientSize());
 }
 
-void WindowAndroid::setScale(int scale)
+void WindowAndroid::setScale(int)
 {
-  scale = std::max(1, scale);
-  if (m_scale == scale)
-    return;
-  m_scale = scale;
-  m_frame = scaledFrame(m_frame);
-  if (!m_fullscreen)
-    m_restoredFrame = m_frame;
-  onResize(clientSize());
+  // The raster presenter currently supports one source pixel per native pixel.
+  // Do not advertise WindowScale until scaled presentation is implemented.
 }
 
 void WindowAndroid::setVisible(bool visible)
