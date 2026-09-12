@@ -20,18 +20,19 @@ namespace {
 WindowAndroid* g_window = nullptr;
 } // namespace
 
-WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(1)
+WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(std::clamp(spec.scale(), 1, 4))
 {
   if (g_window)
     throw std::runtime_error("Android supports only one logical window");
 
   // One activity fills its native surface. Desktop saved/centered rectangles
-  // and the default desktop scale cannot size Android's presentation buffer.
+  // cannot size Android's presentation buffer.
   auto native = SystemAndroid::lockNativeWindow();
   if (!native.window)
     throw std::runtime_error("Android window creation requires ANativeWindow");
   m_frame =
     gfx::Rect(0, 0, ANativeWindow_getWidth(native.window), ANativeWindow_getHeight(native.window));
+  SystemAndroid::setInputScale(m_scale);
   m_restoredFrame = m_frame;
   setUserData<void>(nullptr);
   g_window = this;
@@ -72,10 +73,14 @@ void WindowAndroid::setFrame(const gfx::Rect& bounds)
     onResize(clientSize());
 }
 
-void WindowAndroid::setScale(int)
+void WindowAndroid::setScale(int scale)
 {
-  // The raster presenter currently supports one source pixel per native pixel.
-  // Do not advertise WindowScale until scaled presentation is implemented.
+  scale = std::clamp(scale, 1, 4);
+  if (m_scale == scale)
+    return;
+  m_scale = scale;
+  SystemAndroid::setInputScale(scale);
+  onResize(clientSize());
 }
 
 void WindowAndroid::setVisible(bool visible)

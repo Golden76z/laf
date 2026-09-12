@@ -18,6 +18,9 @@ namespace os {
 class SystemAndroid : public CommonSystem {
 public:
   Window* defaultWindow() override;
+  gfx::Point mousePosition() const override;
+  KeyModifiers keyModifiers() override;
+  bool isKeyPressed(KeyScancode key) override;
   ScreenRef primaryScreen() override;
   void listScreens(ScreenList& screens) override;
 
@@ -28,6 +31,8 @@ public:
     ANativeWindow* window;
   };
   static NativeWindowLock lockNativeWindow();
+  static int inputScale();
+  static void setInputScale(int scale);
   static bool setNativeWindow(ANativeWindow* window);
 };
 

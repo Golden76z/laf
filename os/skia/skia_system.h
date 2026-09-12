@@ -51,7 +51,7 @@ public:
   {
 #if LAF_ANDROID
     // Only capabilities supplied by the common raster implementation.
-    return Capabilities::ColorSpaces;
+    return Capabilities(int(Capabilities::WindowScale) | int(Capabilities::ColorSpaces));
 #else
     return Capabilities(int(Capabilities::MultipleWindows) | int(Capabilities::CanResizeWindow) |
                         int(Capabilities::WindowScale) | int(Capabilities::CustomMouseCursor) |

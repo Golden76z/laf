@@ -23,3 +23,7 @@ target_include_directories(android_event_queue_test PRIVATE ../../.. "${CMAKE_CU
 target_link_libraries(android_event_queue_test PRIVATE Threads::Threads)
 add_test(NAME android_event_queue_contract COMMAND android_event_queue_test)
 set_tests_properties(android_event_queue_contract PROPERTIES TIMEOUT 15)
+
+add_executable(android_raster_test raster_test.cpp)
+target_include_directories(android_raster_test PRIVATE ../../..)
+add_test(NAME android_raster_contract COMMAND android_raster_test)

@@ -6,6 +6,7 @@
   #include "config.h"
 #endif
 
+#include "os/android/input.h"
 #include "os/android/system.h"
 #include "os/android/window.h"
 #include "os/event.h"
@@ -13,13 +14,24 @@
 
 #include <android/log.h>
 #include <android/native_window.h>
+#include <atomic>
 
 namespace os {
 
 namespace {
+std::atomic<int> nativeScale{ 1 };
 std::mutex nativeMutex;
 ANativeWindow* nativeWindow = nullptr;
 } // namespace
+
+int SystemAndroid::inputScale()
+{
+  return nativeScale.load();
+}
+void SystemAndroid::setInputScale(int scale)
+{
+  nativeScale.store(scale);
+}
 
 SystemAndroid::NativeWindowLock SystemAndroid::lockNativeWindow()
 {
@@ -85,6 +97,19 @@ ScreenRef SystemAndroid::primaryScreen()
 void SystemAndroid::listScreens(ScreenList& screens)
 {
   screens.push_back(primaryScreen());
+}
+
+gfx::Point SystemAndroid::mousePosition() const
+{
+  return InputAndroid::mousePosition();
+}
+KeyModifiers SystemAndroid::keyModifiers()
+{
+  return InputAndroid::keyModifiers();
+}
+bool SystemAndroid::isKeyPressed(KeyScancode key)
+{
+  return InputAndroid::isKeyPressed(key);
 }
 
 Window* SystemAndroid::defaultWindow()

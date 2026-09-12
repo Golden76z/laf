@@ -6,6 +6,7 @@
   #include "config.h"
 #endif
 
+#include "os/android/raster.h"
 #include "os/android/system.h"
 #include "os/skia/skia_window_android.h"
 
@@ -44,10 +45,8 @@ void SkiaWindowAndroid::swapBuffers()
     m_loggedSurfaceSize = size;
   }
 
-  // This milestone uses native pixels at scale 1; density/scaled presentation
-  // is not silently inferred from differing source and destination dimensions.
-  if (scale() != 1 || (bitmap.colorType() != kRGBA_8888_SkColorType &&
-                       bitmap.colorType() != kBGRA_8888_SkColorType)) {
+  if (scale() < 1 || (bitmap.colorType() != kRGBA_8888_SkColorType &&
+                      bitmap.colorType() != kBGRA_8888_SkColorType)) {
     __android_log_write(ANDROID_LOG_ERROR, "Aseprite", "Unsupported raster scale or color type");
     return;
   }
@@ -71,12 +70,18 @@ void SkiaWindowAndroid::swapBuffers()
   }
 
   bool copied = false;
-  if (buffer.format == WINDOW_FORMAT_RGBA_8888 && buffer.bits && buffer.width == size.w &&
-      buffer.height == size.h && buffer.stride >= buffer.width) {
-    // readPixels honors bitmap.rowBytes() and performs an explicit BGRA->RGBA
-    // conversion if needed. Android's stride is in pixels, Skia's in bytes.
-    const auto destination = bitmap.info().makeColorType(kRGBA_8888_SkColorType);
-    copied = bitmap.readPixels(destination, buffer.bits, size_t(buffer.stride) * 4, 0, 0);
+  if (buffer.format == WINDOW_FORMAT_RGBA_8888 && buffer.bits && buffer.width == size.w * scale() &&
+      buffer.height == size.h * scale() && buffer.stride >= buffer.width) {
+    copied = copy_integer_raster(bitmap.getPixels(),
+                                 bitmap.rowBytes(),
+                                 size.w,
+                                 size.h,
+                                 bitmap.colorType() == kBGRA_8888_SkColorType,
+                                 scale(),
+                                 buffer.bits,
+                                 size_t(buffer.stride) * 4,
+                                 buffer.width,
+                                 buffer.height);
   }
   if (!copied) {
     __android_log_print(ANDROID_LOG_ERROR,
