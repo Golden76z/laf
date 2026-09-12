@@ -211,7 +211,8 @@ target_compile_definitions(skia INTERFACE
   SK_SCALAR_TO_FLOAT_EXCLUDED
   SK_ALLOW_STATIC_GLOBAL_INITIALIZERS=1)
 if(ANDROID)
-  target_compile_definitions(skia INTERFACE SK_SUPPORT_GPU=0)
+  # The raster Android Skia build includes SkSL runtime effects without a GPU.
+  target_compile_definitions(skia INTERFACE SK_SUPPORT_GPU=0 SK_ENABLE_SKSL=1)
 else()
   target_compile_definitions(skia INTERFACE SK_SUPPORT_GPU=1 SK_ENABLE_SKSL=1 SK_GL=1)
 endif()
