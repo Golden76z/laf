@@ -198,10 +198,17 @@ std::string get_temp_path()
 
 std::string get_user_docs_folder()
 {
+#if LAF_ANDROID
+  // NativeActivity initializes this before entering the application. Do not
+  // infer Android document storage from desktop HOME or a device-specific path.
+  const char* documents = getenv("LAF_ANDROID_DOCUMENTS_DIR");
+  return documents ? documents : std::string();
+#else
   char* tmpdir = getenv("HOME");
   if (tmpdir)
     return tmpdir;
   return "/";
+#endif
 }
 
 std::string get_canonical_path(const std::string& path)
