@@ -70,14 +70,12 @@ void SkiaWindowAndroid::swapBuffers()
   }
 
   bool copied = false;
-  if (buffer.format == WINDOW_FORMAT_RGBA_8888 && buffer.bits && buffer.width == size.w * scale() &&
-      buffer.height == size.h * scale() && buffer.stride >= buffer.width) {
-    copied = copy_integer_raster(bitmap.getPixels(),
+  if (buffer.format == WINDOW_FORMAT_RGBA_8888 && buffer.bits && buffer.stride >= buffer.width) {
+    copied = copy_nearest_raster(bitmap.getPixels(),
                                  bitmap.rowBytes(),
                                  size.w,
                                  size.h,
                                  bitmap.colorType() == kBGRA_8888_SkColorType,
-                                 scale(),
                                  buffer.bits,
                                  size_t(buffer.stride) * 4,
                                  buffer.width,

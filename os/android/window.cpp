@@ -27,12 +27,10 @@ WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(std::clamp(spec.s
 
   // One activity fills its native surface. Desktop saved/centered rectangles
   // cannot size Android's presentation buffer.
-  auto native = SystemAndroid::lockNativeWindow();
-  if (!native.window)
-    throw std::runtime_error("Android window creation requires ANativeWindow");
-  m_frame =
-    gfx::Rect(0, 0, ANativeWindow_getWidth(native.window), ANativeWindow_getHeight(native.window));
   SystemAndroid::setInputScale(m_scale);
+  m_frame = SystemAndroid::displayBounds();
+  if (m_frame.isEmpty())
+    throw std::runtime_error("Android window creation requires ANativeWindow");
   m_restoredFrame = m_frame;
   setUserData<void>(nullptr);
   g_window = this;
@@ -80,6 +78,7 @@ void WindowAndroid::setScale(int scale)
     return;
   m_scale = scale;
   SystemAndroid::setInputScale(scale);
+  m_frame = SystemAndroid::displayBounds();
   onResize(clientSize());
 }
 

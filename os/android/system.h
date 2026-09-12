@@ -31,6 +31,10 @@ public:
     ANativeWindow* window;
   };
   static NativeWindowLock lockNativeWindow();
+  // LAF window/screen coordinates include Android's density adjustment.
+  static void setDisplayDensity(int dpi);
+  static gfx::Rect displayBounds();
+  static gfx::Point toDisplayPosition(const gfx::Point& nativePosition);
   static int inputScale();
   static void setInputScale(int scale);
   static bool setNativeWindow(ANativeWindow* window);

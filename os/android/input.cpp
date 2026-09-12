@@ -159,8 +159,9 @@ void InputAndroid::pointer(Event::Type type,
   event.setType(type);
   event.setPointerType(pointerType);
   event.setButton(button);
-  event.setPosition(gfx::Point(int(std::floor(double(physical.x) / scale)),
-                               int(std::floor(double(physical.y) / scale))));
+  const auto display = SystemAndroid::toDisplayPosition(physical);
+  event.setPosition(gfx::Point(int(std::floor(double(display.x) / scale)),
+                               int(std::floor(double(display.y) / scale))));
   event.setWheelDelta(wheel);
   event.setModifiers(keyModifiers());
   {

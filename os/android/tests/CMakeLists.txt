@@ -27,3 +27,7 @@ set_tests_properties(android_event_queue_contract PROPERTIES TIMEOUT 15)
 add_executable(android_raster_test raster_test.cpp)
 target_include_directories(android_raster_test PRIVATE ../../..)
 add_test(NAME android_raster_contract COMMAND android_raster_test)
+
+add_executable(android_display_metrics_test display_metrics_test.cpp)
+target_include_directories(android_display_metrics_test PRIVATE ../../.. "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME android_display_metrics_contract COMMAND android_display_metrics_test)
