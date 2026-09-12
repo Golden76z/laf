@@ -216,8 +216,103 @@ void InputAndroid::pointer(Event::Type type,
   }
 }
 
+void InputAndroid::navigation(TouchNavigation::Phase phase, gfx::Point midpoint, double ratio)
+{
+  TouchNavigation nav;
+  nav.phase = phase;
+  nav.position = midpoint;
+  nav.previous = m_gestureMidpoint;
+  nav.scale = ratio;
+  Event event;
+  event.setType(Event::TouchNavigation);
+  event.setNavigation(nav);
+  event.setPointerType(PointerType::Touch);
+  event.setPosition(midpoint);
+  queue_event(event);
+#ifndef NDEBUG
+  if (phase != TouchNavigation::Update || m_gestureSamples++ < 3)
+    __android_log_print(ANDROID_LOG_INFO, "Aseprite",
+      "Gesture phase=%d midpoint=%d,%d pan=%d,%d ratio=%.5f distancePx=%.2f",
+      int(phase), midpoint.x, midpoint.y, midpoint.x-nav.previous.x,
+      midpoint.y-nav.previous.y, ratio, m_gestureDistance);
+#endif
+  m_gestureMidpoint = midpoint;
+}
+
+bool InputAndroid::gestureMotion(AInputEvent* event, int action)
+{
+  const size_t count = AMotionEvent_getPointerCount(event);
+  const bool begin = action == AMOTION_EVENT_ACTION_POINTER_DOWN &&
+                     m_contactState == ContactState::SinglePointer &&
+                     m_pointerType == PointerType::Touch && count == 2;
+  if (m_contactState == ContactState::AwaitFreshDown)
+    return true;
+  if (!begin && m_contactState != ContactState::TwoFingerGesture)
+    return false;
+
+  // Only two real finger tool types, never pen/eraser or a third contact.
+  if (count != 2 || AMotionEvent_getToolType(event, 0) != AMOTION_EVENT_TOOL_TYPE_FINGER ||
+      AMotionEvent_getToolType(event, 1) != AMOTION_EVENT_TOOL_TYPE_FINGER) {
+    if (!begin) {
+      navigation(TouchNavigation::Cancel, m_gestureMidpoint);
+      m_contactState = ContactState::AwaitFreshDown;
+    }
+    return !begin;
+  }
+  if (begin) {
+    for (int i = 0; i < 2; ++i)
+      m_gestureIds[i] = AMotionEvent_getPointerId(event, i);
+  }
+  else {
+    const int id0 = AMotionEvent_getPointerId(event, 0);
+    const int id1 = AMotionEvent_getPointerId(event, 1);
+    if (!((id0 == m_gestureIds[0] && id1 == m_gestureIds[1]) ||
+          (id0 == m_gestureIds[1] && id1 == m_gestureIds[0]))) {
+      navigation(TouchNavigation::Cancel, m_gestureMidpoint);
+      m_contactState = ContactState::AwaitFreshDown;
+      return true;
+    }
+  }
+  if (!begin && (action == AMOTION_EVENT_ACTION_POINTER_UP || action == AMOTION_EVENT_ACTION_UP)) {
+    navigation(TouchNavigation::End, m_gestureMidpoint);
+    m_contactState = ContactState::AwaitFreshDown;
+    return true; // Remaining finger cannot become a drawing stroke.
+  }
+  // Distance is measured in physical window pixels: its dimensionless ratio
+  // is density-independent, and a rigid pan cannot acquire spurious zoom from
+  // rounding each endpoint separately. Convert the midpoint once using the
+  // exact same physical -> display -> logical transform as pointer events.
+  const double x0 = AMotionEvent_getX(event, 0), y0 = AMotionEvent_getY(event, 0);
+  const double x1 = AMotionEvent_getX(event, 1), y1 = AMotionEvent_getY(event, 1);
+  const auto display = SystemAndroid::toDisplayPosition(gfx::Point(
+    int(std::floor((x0+x1)/2)), int(std::floor((y0+y1)/2))));
+  const double scale = SystemAndroid::inputScale();
+  const gfx::Point midpoint(int(std::floor(display.x/scale)), int(std::floor(display.y/scale)));
+  const double distance = std::hypot(x1-x0, y1-y0);
+  if (begin) {
+    m_contactState = ContactState::TwoFingerGesture;
+    m_pointerId = -1; // GUI Begin cancels the provisional drawing transaction.
+    m_gestureDistance = distance;
+    m_gestureMidpoint = midpoint;
+#ifndef NDEBUG
+    m_gestureSamples = 0;
+#endif
+    navigation(TouchNavigation::Begin, midpoint);
+  }
+  else if (action == AMOTION_EVENT_ACTION_MOVE) {
+    const double ratio = (m_gestureDistance > 0 && distance > 0 ? distance/m_gestureDistance : 1.0);
+    if (midpoint != m_gestureMidpoint || ratio != 1.0)
+      navigation(TouchNavigation::Update, midpoint, ratio);
+    m_gestureDistance = distance;
+  }
+  return true;
+}
+
 void InputAndroid::cancelPointer()
 {
+  if (m_contactState == ContactState::TwoFingerGesture)
+    navigation(TouchNavigation::Cancel, m_gestureMidpoint);
+  m_contactState = ContactState::Idle;
   if (m_pointerId >= 0 || m_mouseButtons) {
     const auto type = m_pointerId >= 0 ? m_pointerType : PointerType::Mouse;
     // Leave the target before releasing capture so cancel isn't a button click.
@@ -271,6 +366,23 @@ bool InputAndroid::motion(AInputEvent* event)
     modifiers = fromMeta(AMotionEvent_getMetaState(event));
     if (pressed[kKeySpace])
       modifiers |= kKeySpaceModifier;
+  }
+  if (m_pointerId >= 0 &&
+      (m_pointerType == PointerType::Pen || m_pointerType == PointerType::Eraser)) {
+    bool containsPen = false;
+    for (size_t i = 0; i < count; ++i)
+      containsPen |= AInputEvent_getDeviceId(event) == m_pointerDevice &&
+                     AMotionEvent_getPointerId(event, i) == m_pointerId &&
+                     toolType(AMotionEvent_getToolType(event, i)) == m_pointerType;
+    if (!containsPen) {
+#ifndef NDEBUG
+      if (!m_ignoredFingerLogged) {
+        __android_log_write(ANDROID_LOG_INFO, "Aseprite", "Input contact ignored during active pen stroke");
+        m_ignoredFingerLogged = true;
+      }
+#endif
+      return true;
+    }
   }
   if (action == AMOTION_EVENT_ACTION_CANCEL) {
     cancelPointer();
@@ -329,12 +441,21 @@ bool InputAndroid::motion(AInputEvent* event)
 #ifndef NDEBUG
     m_pressureTraceMask = 0;
 #endif
+    m_contactState = ContactState::SinglePointer;
+    m_pointerDevice = AInputEvent_getDeviceId(event);
+#ifndef NDEBUG
+    m_ignoredFingerLogged = false;
+#endif
     m_pointerId = AMotionEvent_getPointerId(event, 0);
     m_pointerType = toolType(AMotionEvent_getToolType(event, 0));
     m_inside = true;
   }
+  else if (AInputEvent_getDeviceId(event) != m_pointerDevice)
+    return true;
+  else if (gestureMotion(event, action))
+    return true;
   else if (action == AMOTION_EVENT_ACTION_POINTER_DOWN)
-    return true; // Never promote a secondary contact to the active pointer.
+    return true; // Secondary pen/finger slots never generate another drawing press.
   else if (m_pointerId < 0)
     return true; // Ignore hover and remaining contacts after active-pointer up.
 
@@ -362,6 +483,7 @@ bool InputAndroid::motion(AInputEvent* event)
   else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_POINTER_UP) {
     pointer(Event::MouseUp, m_position, m_pointerType, Event::LeftButton, {}, pressure);
     m_pointerId = -1;
+    m_contactState = ContactState::Idle;
     // Keep the last target through up dispatch; the next down supplies enter/move.
   }
   return true;

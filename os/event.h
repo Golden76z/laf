@@ -16,6 +16,7 @@
 #include "os/keys.h"
 #include "os/pointer_type.h"
 #include "os/window.h"
+#include "os/touch_navigation.h"
 
 #include <functional>
 #include <string>
@@ -69,6 +70,7 @@ public:
 
     // Pinch gesture with fingers to zoom in/out
     TouchMagnify,
+    TouchNavigation,
     Callback,
   };
 
@@ -122,6 +124,9 @@ public:
   PointerType pointerType() const { return m_pointerType; }
   MouseButton button() const { return m_button; }
   float magnification() const { return m_magnification; }
+  const os::TouchNavigation& navigation() const { return m_navigation; }
+  void setNavigation(const os::TouchNavigation& value) { m_navigation = value; }
+
   float pressure() const { return m_pressure; }
 
   void setType(Type type) { m_type = type; }
@@ -149,6 +154,7 @@ public:
   }
 
 private:
+  os::TouchNavigation m_navigation;
   Type m_type;
   WindowRef m_window;
   base::paths m_files;

@@ -37,6 +37,19 @@ private:
                gfx::Point wheel = {},
                float pressure = 0.0f);
   void cancelPointer();
+  void navigation(TouchNavigation::Phase phase, gfx::Point midpoint, double ratio = 1.0);
+  bool gestureMotion(AInputEvent* event, int action);
+
+  enum class ContactState { Idle, SinglePointer, TwoFingerGesture, AwaitFreshDown };
+  ContactState m_contactState = ContactState::Idle;
+  int m_pointerDevice = -1;
+  int m_gestureIds[2] = {-1, -1};
+  double m_gestureDistance = 0.0;
+  gfx::Point m_gestureMidpoint;
+#ifndef NDEBUG
+  unsigned m_gestureSamples = 0;
+  bool m_ignoredFingerLogged = false;
+#endif
 
 #ifndef NDEBUG
   unsigned m_pressureTraceMask = 0;
