@@ -29,8 +29,10 @@ public:
   struct NativeWindowLock {
     std::unique_lock<std::mutex> lock;
     ANativeWindow* window;
+    gfx::Rect content;
   };
   static NativeWindowLock lockNativeWindow();
+  static void setKeyboardInset(int bottom);
   // LAF window/screen coordinates include Android's density adjustment.
   static void setDisplayDensity(int dpi);
   static gfx::Rect displayBounds();

@@ -24,6 +24,7 @@ std::atomic<int> nativeScale{ 1 };
 std::atomic<int> displayDensity{ 320 };
 std::mutex nativeMutex;
 ANativeWindow* nativeWindow = nullptr;
+int keyboardInset = 0;
 } // namespace
 
 void SystemAndroid::setDisplayDensity(int dpi)
@@ -36,9 +37,11 @@ gfx::Rect SystemAndroid::displayBounds()
   auto native = lockNativeWindow();
   if (!native.window)
     return {};
-  return gfx::Rect(android_display_size(ANativeWindow_getWidth(native.window),
-                                        ANativeWindow_getHeight(native.window),
-                                        displayDensity.load(), inputScale()));
+  const auto full = android_display_size(ANativeWindow_getWidth(native.window),
+                                         ANativeWindow_getHeight(native.window),
+                                         displayDensity.load(), inputScale());
+  return gfx::Rect(full.w, std::max(inputScale(),
+    (full.h * native.content.h / ANativeWindow_getHeight(native.window) / inputScale()) * inputScale()));
 }
 
 gfx::Point SystemAndroid::toDisplayPosition(const gfx::Point& position)
@@ -49,8 +52,10 @@ gfx::Point SystemAndroid::toDisplayPosition(const gfx::Point& position)
   const int width = ANativeWindow_getWidth(native.window);
   const int height = ANativeWindow_getHeight(native.window);
   const auto size = android_display_size(width, height, displayDensity.load(), inputScale());
+  const int logicalHeight = std::max(inputScale(),
+    (size.h * native.content.h / height / inputScale()) * inputScale());
   return gfx::Point(android_map_coordinate(position.x, width, size.w),
-                     android_map_coordinate(position.y, height, size.h));
+                     android_map_coordinate(position.y, native.content.h, logicalHeight));
 }
 
 int SystemAndroid::inputScale()
@@ -62,10 +67,19 @@ void SystemAndroid::setInputScale(int scale)
   nativeScale.store(scale);
 }
 
+void SystemAndroid::setKeyboardInset(int bottom)
+{
+  std::lock_guard<std::mutex> lock(nativeMutex);
+  keyboardInset = std::max(0, bottom);
+}
+
 SystemAndroid::NativeWindowLock SystemAndroid::lockNativeWindow()
 {
   std::unique_lock<std::mutex> lock(nativeMutex);
-  return { std::move(lock), nativeWindow };
+  gfx::Rect content;
+  if (nativeWindow) content = gfx::Rect(ANativeWindow_getWidth(nativeWindow),
+    std::max(1, ANativeWindow_getHeight(nativeWindow) - keyboardInset));
+  return { std::move(lock), nativeWindow, content };
 }
 
 bool SystemAndroid::setNativeWindow(ANativeWindow* window)

@@ -61,7 +61,7 @@ public:
   void setMousePosition(const gfx::Point&) override {}
   void captureMouse() override {}
   void releaseMouse() override {}
-  void setTextInput(bool, const gfx::Point& = {}) {}
+  void setTextInput(bool state, const gfx::Point& caret = {});
   void performWindowAction(WindowAction, const Event* = nullptr) override {}
   std::string getLayout() override { return {}; }
   void setLayout(const std::string&) override {}

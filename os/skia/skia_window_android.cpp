@@ -79,7 +79,7 @@ void SkiaWindowAndroid::swapBuffers()
                                  buffer.bits,
                                  size_t(buffer.stride) * 4,
                                  buffer.width,
-                                 buffer.height);
+                                 std::min(buffer.height, nativeLock.content.h));
   }
   if (!copied) {
     __android_log_print(ANDROID_LOG_ERROR,

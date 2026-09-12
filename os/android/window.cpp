@@ -1,3 +1,4 @@
+#include "os/android/text_input.h"
 // LAF OS Library
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
@@ -96,3 +97,8 @@ void WindowAndroid::minimize()
 }
 
 } // namespace os
+
+void os::WindowAndroid::setTextInput(bool state, const gfx::Point& caret)
+{
+  os::AndroidTextInput::setActive(state);
+}
