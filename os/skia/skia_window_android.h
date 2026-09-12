@@ -14,6 +14,13 @@ namespace os {
 class SkiaWindowAndroid : public SkiaWindowBase<WindowAndroid> {
 public:
   explicit SkiaWindowAndroid(const WindowSpec& spec);
+  void swapBuffers() override;
+  void invalidateRegion(const gfx::Region&) override { swapBuffers(); }
+
+private:
+  gfx::Size m_loggedSurfaceSize;
+  bool m_loggedBuffer = false;
+  bool m_presented = false;
 };
 
 } // namespace os

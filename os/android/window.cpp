@@ -6,6 +6,7 @@
   #include "config.h"
 #endif
 
+#include "os/android/system.h"
 #include "os/android/window.h"
 #include "os/window_spec.h"
 
@@ -39,6 +40,12 @@ WindowAndroid::~WindowAndroid()
 WindowAndroid* WindowAndroid::instance()
 {
   return g_window;
+}
+
+Window::NativeHandle WindowAndroid::nativeHandle() const
+{
+  auto* system = dynamic_cast<SystemAndroid*>(System::rawInstance());
+  return system ? system->nativeWindow() : nullptr;
 }
 
 gfx::Rect WindowAndroid::scaledFrame(const gfx::Rect& frame) const

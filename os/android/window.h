@@ -43,8 +43,9 @@ public:
   std::string title() const override { return m_title; }
   void setTitle(const std::string& title) override { m_title = title; }
 
-  // No native window, display metrics, focus, transparency or presentation yet.
-  NativeHandle nativeHandle() const override { return nullptr; }
+  // Borrowed native handle on Android's main thread; null after destruction.
+  NativeHandle nativeHandle() const override;
+  // Display metrics, focus and transparency are not integrated yet.
   ScreenRef screen() const override { return nullptr; }
   ColorSpaceRef colorSpace() const override { return nullptr; }
   bool isTransparent() const override { return false; }
