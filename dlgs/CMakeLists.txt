@@ -8,7 +8,7 @@ if(WIN32)
   target_sources(laf-dlgs PRIVATE win/file_dialog_win.cpp)
 elseif(APPLE)
   target_sources(laf-dlgs PRIVATE file_dialog_osx.mm)
-else()
+elseif(NOT ANDROID)
   target_sources(laf-dlgs PRIVATE file_dialog_x11.cpp)
 endif()
 

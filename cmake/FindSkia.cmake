@@ -9,6 +9,9 @@ if(NOT SKIA_DIR)
 else()
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(SKIA_ARCH "x64")
+    if(ANDROID AND CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+      set(SKIA_ARCH "arm64")
+    endif()
     if(APPLE)
       if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64" OR
          (CMAKE_OSX_ARCHITECTURES STREQUAL "" AND
@@ -27,8 +30,16 @@ else()
 endif()
 
 # Skia library
-find_library(SKIA_LIBRARY skia PATH "${SKIA_LIBRARY_DIR}")
-if(WIN32)
+set(SKIA_FIND_OPTIONS)
+if(ANDROID)
+  # These are explicit paths to cross-compiled archives outside the NDK sysroot.
+  set(SKIA_FIND_OPTIONS NO_CMAKE_FIND_ROOT_PATH NO_DEFAULT_PATH)
+endif()
+find_library(SKIA_LIBRARY skia PATHS "${SKIA_LIBRARY_DIR}" ${SKIA_FIND_OPTIONS})
+if(ANDROID)
+  # This milestone uses a raster-only Skia build, without EGL/GLES.
+  set(SKIA_OPENGL_LIBRARY "")
+elseif(WIN32)
   find_library(SKIA_OPENGL_LIBRARY opengl32)
 elseif(APPLE)
   find_library(SKIA_OPENGL_LIBRARY OpenGL NAMES GL)
@@ -37,8 +48,8 @@ else()
 endif()
 
 # Skia modules
-find_library(SKUNICODE_LIBRARY skunicode PATH "${SKIA_LIBRARY_DIR}")
-find_library(SKSHAPER_LIBRARY skshaper PATH "${SKIA_LIBRARY_DIR}")
+find_library(SKUNICODE_LIBRARY skunicode PATHS "${SKIA_LIBRARY_DIR}" ${SKIA_FIND_OPTIONS})
+find_library(SKSHAPER_LIBRARY skshaper PATHS "${SKIA_LIBRARY_DIR}" ${SKIA_FIND_OPTIONS})
 
 # Check that Skia is compiled for the same CPU architecture
 if(WIN32 AND
@@ -70,7 +81,7 @@ if(WIN32 AND
 endif()
 
 # Check that if Skia is compiled with libc++, we use -stdlib=libc++
-if(UNIX AND NOT APPLE AND EXISTS "${SKIA_LIBRARY_DIR}/args.gn")
+if(UNIX AND NOT APPLE AND NOT ANDROID AND EXISTS "${SKIA_LIBRARY_DIR}/args.gn")
   file(READ "${SKIA_LIBRARY_DIR}/args.gn" SKIA_ARGS_GN)
   string(FIND "${SKIA_ARGS_GN}" "-stdlib=libc++" matchres)
   if(${matchres} GREATER_EQUAL 0)
@@ -173,11 +184,11 @@ if(NOT PNG_LIBRARIES)
 endif()
 
 set(FREETYPE_FOUND ON)
-find_library(FREETYPE_LIBRARY freetype2 PATH "${SKIA_LIBRARY_DIR}" NO_DEFAULT_PATH)
+find_library(FREETYPE_LIBRARY freetype2 PATHS "${SKIA_LIBRARY_DIR}" NO_DEFAULT_PATH ${SKIA_FIND_OPTIONS})
 set(FREETYPE_LIBRARIES ${FREETYPE_LIBRARY})
 set(FREETYPE_INCLUDE_DIRS "${SKIA_DIR}/third_party/externals/freetype/include")
 
-find_library(HARFBUZZ_LIBRARY harfbuzz PATH "${SKIA_LIBRARY_DIR}" NO_DEFAULT_PATH)
+find_library(HARFBUZZ_LIBRARY harfbuzz PATHS "${SKIA_LIBRARY_DIR}" NO_DEFAULT_PATH ${SKIA_FIND_OPTIONS})
 set(HARFBUZZ_LIBRARIES ${HARFBUZZ_LIBRARY})
 set(HARFBUZZ_INCLUDE_DIRS "${SKIA_DIR}/third_party/externals/harfbuzz/src")
 
@@ -198,10 +209,12 @@ target_compile_definitions(skia INTERFACE
   SK_GAMMA_SRGB
   SK_GAMMA_APPLY_TO_A8
   SK_SCALAR_TO_FLOAT_EXCLUDED
-  SK_ALLOW_STATIC_GLOBAL_INITIALIZERS=1
-  SK_SUPPORT_GPU=1
-  SK_ENABLE_SKSL=1
-  SK_GL=1)
+  SK_ALLOW_STATIC_GLOBAL_INITIALIZERS=1)
+if(ANDROID)
+  target_compile_definitions(skia INTERFACE SK_SUPPORT_GPU=0)
+else()
+  target_compile_definitions(skia INTERFACE SK_SUPPORT_GPU=1 SK_ENABLE_SKSL=1 SK_GL=1)
+endif()
 
 # Freetype is used by skia, and it needs zlib and libpng
 target_link_libraries(skia INTERFACE
@@ -212,6 +225,8 @@ if(WIN32)
   target_compile_definitions(skia INTERFACE
     SK_BUILD_FOR_WIN
     _CRT_SECURE_NO_WARNINGS)
+elseif(ANDROID)
+  target_compile_definitions(skia INTERFACE SK_BUILD_FOR_ANDROID)
 elseif(APPLE)
   target_compile_definitions(skia INTERFACE
     SK_BUILD_FOR_MAC)
@@ -226,7 +241,7 @@ if(APPLE)
     ${COCOA_LIBRARY})
 endif()
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   # Change the kN32_SkColorType ordering to BGRA to work in X windows.
   target_compile_definitions(skia INTERFACE
     SK_R32_SHIFT=16)

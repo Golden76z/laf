@@ -70,6 +70,10 @@ elseif(APPLE)
     fs_osx.mm
     platform_osx.mm
     uuid_osx.mm)
+elseif(ANDROID)
+  # Keep the existing POSIX utilities for this build-only milestone.
+  # Linux distribution detection does not apply to Android.
+  list(APPEND BASE_SOURCES uuid_unix.cpp)
 else()
   set(BASE_SOURCES ${BASE_SOURCES}
     platform_unix.cpp
@@ -118,6 +122,10 @@ else()
     find_library(FOUNDATION_LIBRARY Foundation)
     target_compile_definitions(laf-base PUBLIC LAF_MACOS)
     target_link_libraries(laf-base ${FOUNDATION_LIBRARY})
+  elseif(ANDROID)
+    target_compile_definitions(laf-base PUBLIC LAF_ANDROID)
+    find_package(Threads REQUIRED)
+    target_link_libraries(laf-base Threads::Threads)
   else()
     target_compile_definitions(laf-base PUBLIC LAF_LINUX)
     target_link_libraries(laf-base pthread)

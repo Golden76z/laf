@@ -25,6 +25,7 @@ struct Platform {
     Windows,
     macOS,
     Linux,
+    Android,
   };
 
   enum class Arch {
@@ -39,6 +40,8 @@ struct Platform {
     OS::Windows
 #elif LAF_MACOS
     OS::macOS
+#elif LAF_ANDROID
+    OS::Android
 #else
     OS::Linux
 #endif

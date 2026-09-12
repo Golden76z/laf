@@ -307,6 +307,13 @@ void* base_aligned_alloc(std::size_t bytes, std::size_t alignment)
 {
 #if LAF_WINDOWS
   return _aligned_malloc(bytes, alignment);
+#elif LAF_ANDROID
+  // aligned_alloc is only available from Android API 28. The build targets API 26.
+  ASSERT(alignment > 0);
+  if (alignment < sizeof(void*))
+    alignment = sizeof(void*);
+  void* ptr = nullptr;
+  return (posix_memalign(&ptr, alignment, bytes) == 0 ? ptr : nullptr);
 #else
   ASSERT(alignment > 0);
   std::size_t misaligned = (bytes % alignment);

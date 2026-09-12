@@ -7,13 +7,15 @@
 
 set(LAF_OS_SOURCES
   common/event_queue.cpp
-  common/main.cpp
   common/system.cpp
   dnd.cpp
   error.cpp
   event.cpp
   none/system.cpp
   window.cpp)
+if(NOT ANDROID)
+  list(APPEND LAF_OS_SOURCES common/main.cpp)
+endif()
 if(WIN32)
   list(APPEND LAF_OS_SOURCES
     win/color_space.cpp
@@ -49,7 +51,7 @@ elseif(APPLE)
       osx/window.mm
       gl/gl_context_nsgl.mm)
   endif()
-else()
+elseif(NOT ANDROID)
   list(APPEND LAF_OS_SOURCES
     x11/dnd.cpp
     x11/event_queue.cpp
@@ -81,7 +83,7 @@ if(LAF_BACKEND STREQUAL "skia")
   elseif(APPLE)
     list(APPEND LAF_OS_SOURCES
       skia/skia_window_osx.mm)
-  else()
+  elseif(NOT ANDROID)
     list(APPEND LAF_OS_SOURCES
       skia/skia_window_x11.cpp)
   endif()
@@ -131,6 +133,9 @@ elseif(APPLE)
     -Werror=inconsistent-missing-override
     # Use Automatic Reference Counting
     -fobjc-arc)
+elseif(ANDROID)
+  find_package(Threads REQUIRED)
+  list(APPEND LAF_OS_PLATFORM_LIBS android log Threads::Threads)
 else()
   find_package(Threads REQUIRED)
   list(APPEND LAF_OS_PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT})
