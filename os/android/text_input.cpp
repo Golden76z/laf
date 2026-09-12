@@ -28,9 +28,9 @@ void viewport(JNIEnv*, jclass, jlong epoch, jint bottom)
       if (!activity || epoch != generation) return;
     }
     SystemAndroid::setKeyboardInset(bottom);
-    if (auto* window = WindowAndroid::instance()) {
-      window->setFrame(SystemAndroid::displayBounds());
-    }
+    const auto bounds = SystemAndroid::displayBounds();
+    if (auto* window = WindowAndroid::instance(); window && !bounds.isEmpty())
+      window->setFrame(bounds);
   });
   queue_event(event);
 }
@@ -120,8 +120,8 @@ void AndroidTextInput::attach(ANativeActivity* native)
 void AndroidTextInput::setActive(bool state)
 {
   std::lock_guard<std::mutex> lock(mutex);
-  if (!activity || !update || active == state) return;
-  active = state; ++generation;
+  if (!activity || !update || (!active && !state)) return;
+  if (active != state) { active = state; ++generation; }
   JNIEnv* env = nullptr;
   const bool attached = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_EDETACHED;
   if (attached && vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return;

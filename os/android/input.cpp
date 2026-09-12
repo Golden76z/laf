@@ -140,7 +140,12 @@ int InputAndroid::dispatch(int, int, void* data)
   auto& input = *static_cast<InputAndroid*>(data);
   AInputEvent* event = nullptr;
   while (AInputQueue_getEvent(input.m_queue, &event) >= 0) {
-    if (AInputQueue_preDispatchEvent(input.m_queue, event))
+    // Hardware keys retain the established LAF path. Sending them through the
+    // active software IME can swallow Ctrl shortcuts or duplicate committed text.
+    // Back still belongs to Android so it can dismiss the software keyboard.
+    const bool hardwareKey = AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY &&
+                             AKeyEvent_getKeyCode(event) != AKEYCODE_BACK;
+    if (!hardwareKey && AInputQueue_preDispatchEvent(input.m_queue, event))
       continue; // Pre-dispatch owns this event until it is delivered again.
     bool handled = false;
     if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION)
