@@ -6,6 +6,7 @@
 
 #include "os/event.h"
 #include "os/android/motion_diagnostics.h"
+#include "os/android/stylus_diagnostics.h"
 #include <android/input.h>
 #include <jni.h>
 
@@ -55,6 +56,7 @@ private:
   unsigned m_pressureTraceMask = 0;
 #endif
   MotionDiagnostics m_diagnostics;
+  StylusDiagnostics m_stylusDiagnostics;
   JNIEnv* m_env;
   AInputQueue* m_queue = nullptr;
   int m_pointerId = -1;

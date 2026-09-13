@@ -18,23 +18,6 @@ long generation = 0;
 bool active = false;
 
 
-void viewport(JNIEnv*, jclass, jlong epoch, jint bottom)
-{
-  Event event;
-  event.setType(Event::Callback);
-  event.setCallback([epoch, bottom] {
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      if (!activity || epoch != generation) return;
-    }
-    SystemAndroid::setKeyboardInset(bottom);
-    const auto bounds = SystemAndroid::displayBounds();
-    if (auto* window = WindowAndroid::instance(); window && !bounds.isEmpty())
-      window->setFrame(bounds);
-  });
-  queue_event(event);
-}
-
 void receive(JNIEnv* env, jclass, jlong epoch, jstring text, jint key)
 {
   std::u16string value;
@@ -101,9 +84,8 @@ void AndroidTextInput::attach(ANativeActivity* native)
     env->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;"), name));
   if (!env->ExceptionCheck() && local) {
     JNINativeMethod methods[] = {
-      {const_cast<char*>("receive"), const_cast<char*>("(JLjava/lang/String;I)V"), reinterpret_cast<void*>(receive)},
-      {const_cast<char*>("viewport"), const_cast<char*>("(JI)V"), reinterpret_cast<void*>(viewport)}};
-    if (env->RegisterNatives(local, methods, 2) == JNI_OK) {
+      {const_cast<char*>("receive"), const_cast<char*>("(JLjava/lang/String;I)V"), reinterpret_cast<void*>(receive)}};
+    if (env->RegisterNatives(local, methods, 1) == JNI_OK) {
       helper = static_cast<jclass>(env->NewGlobalRef(local));
       activity = env->NewGlobalRef(native->clazz);
       update = env->GetStaticMethodID(helper, "update", "(Landroid/app/Activity;JZ)V");
@@ -135,7 +117,6 @@ void AndroidTextInput::detach(ANativeActivity* native)
   setActive(false);
   std::lock_guard<std::mutex> lock(mutex);
   active = false; ++generation;
-  SystemAndroid::setKeyboardInset(0);
   if (activity) native->env->DeleteGlobalRef(activity);
   if (helper) native->env->DeleteGlobalRef(helper);
   activity = nullptr; helper = nullptr; update = nullptr;

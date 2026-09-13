@@ -15,7 +15,8 @@ class SkiaWindowAndroid : public SkiaWindowBase<WindowAndroid> {
 public:
   explicit SkiaWindowAndroid(const WindowSpec& spec);
   void swapBuffers() override;
-  void invalidateRegion(const gfx::Region&) override { swapBuffers(); }
+  // Inherit WindowAndroid's no-op invalidation: Display::flipDisplay() presents
+  // after invalidating. Native lifecycle redraws call swapBuffers() directly.
 
 private:
   gfx::Size m_loggedSurfaceSize;

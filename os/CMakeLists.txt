@@ -54,6 +54,7 @@ elseif(APPLE)
 elseif(ANDROID)
   list(APPEND LAF_OS_SOURCES
     android/text_input.cpp
+    android/window_ui.cpp
     android/input.cpp
     android/event_queue.cpp
     android/system.cpp

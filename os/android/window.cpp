@@ -1,3 +1,4 @@
+#include "os/android/gesture_profile.h"
 #include "os/android/text_input.h"
 // LAF OS Library
 // This file is released under the terms of the MIT license.
@@ -26,6 +27,9 @@ WindowAndroid::WindowAndroid(const WindowSpec& spec) : m_scale(std::clamp(spec.s
   if (g_window)
     throw std::runtime_error("Android supports only one logical window");
 
+#if ANDROID_GESTURE_PROFILE
+  if (gesture_profile::scaleOne()) m_scale = 1;
+#endif
   // One activity fills its native surface. Desktop saved/centered rectangles
   // cannot size Android's presentation buffer.
   SystemAndroid::setInputScale(m_scale);
@@ -74,6 +78,9 @@ void WindowAndroid::setFrame(const gfx::Rect& bounds)
 
 void WindowAndroid::setScale(int scale)
 {
+#if ANDROID_GESTURE_PROFILE
+  if (gesture_profile::scaleOne()) scale = 1;
+#endif
   scale = std::clamp(scale, 1, 4);
   if (m_scale == scale)
     return;

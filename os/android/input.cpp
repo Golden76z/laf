@@ -3,6 +3,8 @@
 #ifdef HAVE_CONFIG_H
   #include "config.h"
 #endif
+
+#include "os/android/gesture_profile.h"
 #include "os/android/input.h"
 #include "os/android/system.h"
 #include "os/android/pressure.h"
@@ -223,6 +225,11 @@ void InputAndroid::navigation(TouchNavigation::Phase phase, gfx::Point midpoint,
   nav.position = midpoint;
   nav.previous = m_gestureMidpoint;
   nav.scale = ratio;
+#if ANDROID_GESTURE_PROFILE
+  if (gesture_profile::active()) nav.profileId = gesture_profile::inputId;
+  gesture_profile::record("navigation", gesture_profile::now(), 0, nav.profileId,
+    {int(phase), int64_t(ratio*1000000), midpoint.x, midpoint.y});
+#endif
   Event event;
   event.setType(Event::TouchNavigation);
   event.setNavigation(nav);
@@ -352,10 +359,16 @@ void InputAndroid::cancel()
 
 bool InputAndroid::motion(AInputEvent* event)
 {
+#if ANDROID_GESTURE_PROFILE
+  const auto received = gesture_profile::now();
+  gesture_profile::motion(event, received);
+  gesture_profile::Span motionSpan("motion_work", gesture_profile::inputId);
+#endif
   const int source = AInputEvent_getSource(event);
   if (!(source & AINPUT_SOURCE_CLASS_POINTER))
     return false;
   m_diagnostics.observe(event);
+  m_stylusDiagnostics.observe(event);
   const int rawAction = AMotionEvent_getAction(event);
   const int action = rawAction & AMOTION_EVENT_ACTION_MASK;
   const size_t count = AMotionEvent_getPointerCount(event);

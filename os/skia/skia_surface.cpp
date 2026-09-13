@@ -9,6 +9,8 @@
   #include "config.h"
 #endif
 
+#include "os/android/gesture_profile.h"
+
 #include "os/skia/skia_surface.h"
 
 #include "base/file_handle.h"
@@ -817,6 +819,7 @@ void SkiaSurface::skDrawSurface(const SkiaSurface* src,
   }
 #endif
 
+  AGP_SPAN("skia_draw_image");
   m_canvas->drawImageRect(SkImages::RasterFromPixmap(src->m_bitmap.pixmap(), nullptr, nullptr),
                           srcRect,
                           dstRect,

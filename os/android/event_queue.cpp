@@ -6,6 +6,8 @@
   #include "config.h"
 #endif
 
+#include "os/android/gesture_profile.h"
+
 #include "os/android/event_queue.h"
 
 #include <chrono>
@@ -41,6 +43,10 @@ void EventQueueImpl::queueEvent(const Event& ev)
   {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_events.push_back(std::move(next));
+#if ANDROID_GESTURE_PROFILE
+    if (ev.type() == Event::TouchNavigation)
+      gesture_profile::record("queued", gesture_profile::now(), 0, ev.navigation().profileId);
+#endif
   }
   m_ready.notify_one();
 }

@@ -16,6 +16,9 @@ struct TouchNavigation {
   Phase phase = Begin;
   gfx::Point position;
   gfx::Point previous;
+#if defined(__ANDROID__) && (defined(ASEPRITE_ANDROID_GESTURE_PROFILE) || !defined(NDEBUG))
+  long long profileId = 0; // Correlation only; never used by gesture behavior.
+#endif
   double scale = 1.0; // distance / previous distance (not an absolute editor zoom)
 };
 

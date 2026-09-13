@@ -99,5 +99,35 @@ inline bool copy_nearest_raster(const void* source,
   return true;
 }
 
+// Present into a safe subrectangle without changing the nearest-neighbor map.
+// Clear excluded pixels so recycled native buffers cannot expose stale UI.
+inline bool copy_nearest_raster_region(const void* source, size_t sourceRowBytes,
+                                      int width, int height, bool bgra,
+                                      void* destination, size_t destinationRowBytes,
+                                      int bufferWidth, int bufferHeight,
+                                      int x, int y, int contentWidth, int contentHeight)
+{
+  if (!destination || bufferWidth <= 0 || bufferHeight <= 0 || x < 0 || y < 0 ||
+      contentWidth <= 0 || contentHeight <= 0 || x >= bufferWidth || y >= bufferHeight ||
+      contentWidth > bufferWidth-x || contentHeight > bufferHeight-y ||
+      destinationRowBytes < size_t(bufferWidth)*4) return false;
+  auto* pixels = static_cast<uint8_t*>(destination);
+  if (!copy_nearest_raster(source, sourceRowBytes, width, height, bgra,
+                           pixels + size_t(y)*destinationRowBytes + size_t(x)*4,
+                           destinationRowBytes, contentWidth, contentHeight)) return false;
+  if (x || y || contentWidth != bufferWidth || contentHeight != bufferHeight) {
+    for (int row = 0; row < bufferHeight; ++row) {
+      auto* dst = pixels + size_t(row)*destinationRowBytes;
+      if (row < y || row >= y+contentHeight)
+        std::memset(dst, 0, size_t(bufferWidth)*4);
+      else {
+        std::memset(dst, 0, size_t(x)*4);
+        std::memset(dst + size_t(x+contentWidth)*4, 0, size_t(bufferWidth-x-contentWidth)*4);
+      }
+    }
+  }
+  return true;
+}
+
 } // namespace os
 #endif

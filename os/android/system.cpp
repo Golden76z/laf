@@ -6,6 +6,8 @@
   #include "config.h"
 #endif
 
+#include "os/android/gesture_profile.h"
+
 #include "os/android/display_metrics.h"
 #include "os/android/input.h"
 #include "os/android/system.h"
@@ -22,14 +24,23 @@ namespace os {
 namespace {
 std::atomic<int> nativeScale{ 1 };
 std::atomic<int> displayDensity{ 320 };
+std::atomic<int> uiScalePercent{ 100 };
 std::mutex nativeMutex;
 ANativeWindow* nativeWindow = nullptr;
-int keyboardInset = 0;
+int insetLeft = 0, insetTop = 0, insetRight = 0, insetBottom = 0;
 } // namespace
 
 void SystemAndroid::setDisplayDensity(int dpi)
 {
+#if ANDROID_GESTURE_PROFILE
+  if (gesture_profile::scaleOne()) dpi = 320;
+#endif
   displayDensity.store(dpi);
+}
+
+void SystemAndroid::setUiScalePercent(int percent)
+{
+  uiScalePercent.store((percent == 112 || percent == 120) ? percent : 100);
 }
 
 gfx::Rect SystemAndroid::displayBounds()
@@ -37,25 +48,22 @@ gfx::Rect SystemAndroid::displayBounds()
   auto native = lockNativeWindow();
   if (!native.window)
     return {};
-  const auto full = android_display_size(ANativeWindow_getWidth(native.window),
-                                         ANativeWindow_getHeight(native.window),
-                                         displayDensity.load(), inputScale());
-  return gfx::Rect(full.w, std::max(inputScale(),
-    (full.h * native.content.h / ANativeWindow_getHeight(native.window) / inputScale()) * inputScale()));
+  return gfx::Rect(android_content_display_size(ANativeWindow_getWidth(native.window),
+    ANativeWindow_getHeight(native.window), native.content, displayDensity.load(), inputScale(), uiScalePercent.load()));
 }
 
 gfx::Point SystemAndroid::toDisplayPosition(const gfx::Point& position)
 {
+  AGP_SPAN("input_coordinate_mapping");
   auto native = lockNativeWindow();
   if (!native.window)
     return position;
   const int width = ANativeWindow_getWidth(native.window);
   const int height = ANativeWindow_getHeight(native.window);
-  const auto size = android_display_size(width, height, displayDensity.load(), inputScale());
-  const int logicalHeight = std::max(inputScale(),
-    (size.h * native.content.h / height / inputScale()) * inputScale());
-  return gfx::Point(android_map_coordinate(position.x, width, size.w),
-                     android_map_coordinate(position.y, native.content.h, logicalHeight));
+  const auto size = android_content_display_size(width, height, native.content,
+                                                  displayDensity.load(), inputScale(), uiScalePercent.load());
+  return gfx::Point(android_map_coordinate(position.x - native.content.x, native.content.w, size.w),
+                    android_map_coordinate(position.y - native.content.y, native.content.h, size.h));
 }
 
 int SystemAndroid::inputScale()
@@ -67,18 +75,27 @@ void SystemAndroid::setInputScale(int scale)
   nativeScale.store(scale);
 }
 
-void SystemAndroid::setKeyboardInset(int bottom)
+bool SystemAndroid::setContentInsets(int left, int top, int right, int bottom)
 {
   std::lock_guard<std::mutex> lock(nativeMutex);
-  keyboardInset = std::max(0, bottom);
+  left=std::max(0,left); top=std::max(0,top); right=std::max(0,right); bottom=std::max(0,bottom);
+  if (insetLeft==left && insetTop==top && insetRight==right && insetBottom==bottom) return false;
+  insetLeft=left; insetTop=top; insetRight=right; insetBottom=bottom;
+  return true;
 }
 
 SystemAndroid::NativeWindowLock SystemAndroid::lockNativeWindow()
 {
+#if ANDROID_GESTURE_PROFILE
+  gesture_profile::Span mutexSpan("native_mutex_wait");
+#endif
   std::unique_lock<std::mutex> lock(nativeMutex);
+#if ANDROID_GESTURE_PROFILE
+  mutexSpan.stop();
+#endif
   gfx::Rect content;
-  if (nativeWindow) content = gfx::Rect(ANativeWindow_getWidth(nativeWindow),
-    std::max(1, ANativeWindow_getHeight(nativeWindow) - keyboardInset));
+  if (nativeWindow) content = android_content_rect(ANativeWindow_getWidth(nativeWindow),
+    ANativeWindow_getHeight(nativeWindow), insetLeft, insetTop, insetRight, insetBottom);
   return { std::move(lock), nativeWindow, content };
 }
 

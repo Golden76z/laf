@@ -32,9 +32,10 @@ public:
     gfx::Rect content;
   };
   static NativeWindowLock lockNativeWindow();
-  static void setKeyboardInset(int bottom);
+  static bool setContentInsets(int left, int top, int right, int bottom);
   // LAF window/screen coordinates include Android's density adjustment.
   static void setDisplayDensity(int dpi);
+  static void setUiScalePercent(int percent);
   static gfx::Rect displayBounds();
   static gfx::Point toDisplayPosition(const gfx::Point& nativePosition);
   static int inputScale();

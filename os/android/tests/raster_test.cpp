@@ -89,5 +89,31 @@ int main()
       require(dst == before);
     }
   }
+  // Fractional scaling at a nonzero safe-area origin. Recycled excluded pixels
+  // must be cleared, source bytes and native row padding must remain untouched.
+  for (bool bgra : { false, true }) {
+    std::vector<uint8_t> src(16*2,0xA7), dst(48*8,0xCD);
+    for (int y=0;y<2;++y) for (int x=0;x<3;++x) {
+      auto* p=src.data()+y*16+x*4;
+      p[bgra?2:0]=uint8_t(10+y*3+x); p[1]=30; p[bgra?0:2]=50; p[3]=255;
+    }
+    const auto original=src;
+    require(os::copy_nearest_raster_region(src.data(),16,3,2,bgra,
+                                            dst.data(),48,10,8,1,2,7,5));
+    for (int y=0;y<8;++y) {
+      for (int x=0;x<10;++x) {
+        const auto* p=dst.data()+y*48+x*4;
+        if (x>=1 && x<8 && y>=2 && y<7) {
+          require(p[0]==10+((y-2)*2/5)*3+(x-1)*3/7);
+          require(p[1]==30 && p[2]==50 && p[3]==255);
+        } else require(p[0]==0 && p[1]==0 && p[2]==0 && p[3]==0);
+      }
+      for (int i=40;i<48;++i) require(dst[y*48+i]==0xCD);
+    }
+    require(src==original);
+    const auto before=dst;
+    require(!os::copy_nearest_raster_region(src.data(),16,3,2,bgra,dst.data(),48,10,8,8,2,7,5));
+    require(dst==before);
+  }
   std::cout << "RGBA/BGRA, scales 1/2/4, padded rows and invalid buffers passed\n";
 }
